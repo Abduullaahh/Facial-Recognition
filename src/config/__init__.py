@@ -1,0 +1,26 @@
+"""
+Configuration module for the Facial Recognition System.
+"""
+
+from src.config.settings import (
+    DEFAULT_CAMERA_INDEX,
+    DEFAULT_TOLERANCE,
+    ENCODINGS_PICKLE_FILE,
+    FPS_RESET_INTERVAL,
+    KNOWN_FACES_DIRECTORY,
+    QUIT_KEY,
+    SUPPORTED_IMAGE_EXTENSIONS,
+    WINDOW_NAME,
+)
+
+__all__ = [
+    "KNOWN_FACES_DIRECTORY",
+    "ENCODINGS_PICKLE_FILE",
+    "SUPPORTED_IMAGE_EXTENSIONS",
+    "DEFAULT_CAMERA_INDEX",
+    "DEFAULT_TOLERANCE",
+    "FPS_RESET_INTERVAL",
+    "WINDOW_NAME",
+    "QUIT_KEY",
+]
+
