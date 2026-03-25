@@ -29,21 +29,77 @@ conda install -c conda-forge dlib
 pip install opencv-python face-recognition
 ```
 
-## Quick start
+## How to use
 
-1. **Add people** — either:
-   - Put photos in `known_faces/` (filename stem = display name, e.g. `alice.jpg` → `alice`), or  
-   - Run enrollment (see below).
+### First-time setup
 
-2. **Run recognition**
+1. Use **Python 3.10+** and a working webcam.
+2. Open a terminal in the project folder (`Facial-Recognition`) and install dependencies:
 
    ```bash
-   python recognition_app.py
+   pip install -r requirements.txt
    ```
 
-3. Press **`q`** to quit the video window.
+3. If **`dlib`** fails to install on Windows, install [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) or use the **conda** snippet in [Installation](#installation) above.
 
-Paths (`known_faces/`, `encodings.pkl`) are resolved from the **project root**, so you can run the app from another working directory if you use the same install.
+Paths like `known_faces/` and `encodings.pkl` are resolved from the **project root**, so you can run commands from another working directory as long as this project is the one you installed.
+
+You need **at least one enrolled face** before live recognition can label anyone. Use either photos on disk or the webcam enroll flow below.
+
+### Add people (enrollment)
+
+#### Option A — Photos in `known_faces/`
+
+1. Copy images into the **`known_faces`** folder (next to `recognition_app.py`).
+2. The **filename (without extension)** is the on-screen label, e.g. `Alice.jpg` → **Alice**.
+3. Prefer clear, front-facing, well-lit shots; **one main face per image** works best (if several faces are detected, the first is used).
+
+#### Option B — Capture from the webcam
+
+```bash
+python recognition_app.py enroll Alice
+```
+
+Replace `Alice` with a safe label: letters, numbers, spaces, or hyphens (e.g. `Jane_Doe`). Then:
+
+1. Show **one** face in the frame.
+2. When the hint says you are clear to save, press **Space** to capture.
+3. Press **`q`** to cancel without saving.
+
+The app checks that the saved image contains a usable face; otherwise the file is removed and you can try again. Encodings are refreshed after a successful save.
+
+### Run live recognition
+
+```bash
+python recognition_app.py
+```
+
+- A video window opens using the default camera.
+- **Green** box + name: matched **known** person.
+- **Red** box + **Unknown**: face not matched (or below tolerance).
+- Press **`q`** to quit.
+
+### Common tasks (CLI)
+
+| Goal | Example |
+|------|---------|
+| Use a different camera | `python recognition_app.py -c 1` (try `0`, `1`, `2`, …) |
+| Stricter matching | `python recognition_app.py -t 0.5` (lower = stricter) |
+| Faster processing (smaller detection image) | `python recognition_app.py --scale 0.2` |
+| More accurate detection, slower on CPU | `python recognition_app.py --model cnn` |
+| Rebuild `encodings.pkl` after manual file changes | `python recognition_app.py --reload` |
+
+For every flag:
+
+```bash
+python recognition_app.py --help
+python recognition_app.py enroll --help
+```
+
+### Typical workflows
+
+- **First run:** Enroll with `python recognition_app.py enroll <name>` *or* add images under `known_faces/`, then start recognition with `python recognition_app.py`.
+- **After adding or removing images in `known_faces/`:** The next start usually reloads encodings automatically (manifest). If labels look wrong, run once with **`--reload`**.
 
 ## Command-line interface
 
@@ -123,6 +179,7 @@ Override behavior from the CLI without editing code (`--camera`, `--tolerance`, 
 
 ## Troubleshooting
 
+- **“No known faces loaded”** — Nothing usable was found in `known_faces/` (empty folder, bad images, or no face detected). Add photos or run `enroll` again.
 - **No faces in images**: Use front-facing, well-lit photos; check supported extensions.
 - **Camera not opening**: Close other apps using the camera; try `-c 1` or `-c 2`.
 - **Poor accuracy**: Add more or clearer `known_faces` images; lower `-t` slightly; try `--model cnn` if CPU allows.
