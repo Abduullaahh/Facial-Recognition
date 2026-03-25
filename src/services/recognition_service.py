@@ -8,7 +8,14 @@ and displaying recognition results.
 import cv2
 import face_recognition
 
-from src.config import DEFAULT_CAMERA_INDEX, DEFAULT_TOLERANCE, QUIT_KEY, WINDOW_NAME
+from src.config import (
+    DEFAULT_CAMERA_INDEX,
+    DEFAULT_TOLERANCE,
+    FACE_DETECTION_MODEL,
+    FRAME_PROCESS_SCALE,
+    QUIT_KEY,
+    WINDOW_NAME,
+)
 from src.models.face_data import FaceData
 from src.utils.fps_calculator import FPSCalculator
 from src.utils.visualization import draw_face_annotations, draw_fps_counter
@@ -26,7 +33,9 @@ class RecognitionService:
         self,
         face_data: FaceData,
         camera_index: int = DEFAULT_CAMERA_INDEX,
-        tolerance: float = DEFAULT_TOLERANCE
+        tolerance: float = DEFAULT_TOLERANCE,
+        frame_scale: float = FRAME_PROCESS_SCALE,
+        detection_model: str = FACE_DETECTION_MODEL
     ) -> None:
         """
         Initialize the recognition service.
@@ -35,10 +44,14 @@ class RecognitionService:
             face_data: FaceData object containing known encodings and names
             camera_index: Index of the camera to use
             tolerance: Lower values make recognition stricter
+            frame_scale: Scale factor for detection (smaller = faster)
+            detection_model: "hog" or "cnn" for face_locations
         """
         self.face_data = face_data
         self.camera_index = camera_index
         self.tolerance = tolerance
+        self.frame_scale = max(0.1, min(1.0, frame_scale))
+        self.detection_model = detection_model
         self.fps_calculator = FPSCalculator()
 
     def run_recognition(self) -> None:
@@ -108,14 +121,29 @@ class RecognitionService:
         Args:
             frame: OpenCV image frame (BGR format)
         """
-        # Convert BGR (OpenCV format) to RGB (face_recognition format)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        inv_scale = 1.0 / self.frame_scale
+        if self.frame_scale < 1.0:
+            small = cv2.resize(frame, (0, 0), fx=self.frame_scale, fy=self.frame_scale)
+        else:
+            small = frame
 
-        # Find all face locations in the current frame
-        face_locations = face_recognition.face_locations(rgb_frame)
+        rgb_small = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
+        small_locations = face_recognition.face_locations(
+            rgb_small,
+            model=self.detection_model
+        )
+        face_locations = [
+            (
+                int(top * inv_scale),
+                int(right * inv_scale),
+                int(bottom * inv_scale),
+                int(left * inv_scale),
+            )
+            for top, right, bottom, left in small_locations
+        ]
 
-        # Extract face encodings for all detected faces
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+        rgb_full = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        face_encodings = face_recognition.face_encodings(rgb_full, face_locations)
 
         # Compare each detected face with known faces
         for face_encoding, face_location in zip(face_encodings, face_locations):

@@ -7,6 +7,7 @@ the application's main workflow.
 
 from src.config import ENCODINGS_PICKLE_FILE, KNOWN_FACES_DIRECTORY
 from src.services.encoding_service import EncodingService
+from src.services.enrollment_service import EnrollmentService
 from src.services.recognition_service import RecognitionService
 
 
@@ -35,7 +36,14 @@ class MainController:
             encodings_file=encodings_file
         )
 
-    def run(self, force_reload_encodings: bool = False) -> None:
+    def run(
+        self,
+        force_reload_encodings: bool = False,
+        camera_index: int | None = None,
+        tolerance: float | None = None,
+        frame_scale: float | None = None,
+        detection_model: str | None = None,
+    ) -> None:
         """
         Run the facial recognition application.
 
@@ -43,20 +51,58 @@ class MainController:
 
         Args:
             force_reload_encodings: If True, regenerate encodings even if pickle exists
+            camera_index: Camera device index (default from settings)
+            tolerance: Match tolerance (default from settings)
+            frame_scale: Detection resize scale (default from settings)
+            detection_model: "hog" or "cnn"
         """
-        # Load known face encodings
         face_data = self.encoding_service.load_known_faces(force_reload=force_reload_encodings)
 
-        # Initialize and run recognition service
-        recognition_service = RecognitionService(face_data=face_data)
+        kwargs: dict = {}
+        if camera_index is not None:
+            kwargs["camera_index"] = camera_index
+        if tolerance is not None:
+            kwargs["tolerance"] = tolerance
+        if frame_scale is not None:
+            kwargs["frame_scale"] = frame_scale
+        if detection_model is not None:
+            kwargs["detection_model"] = detection_model
+
+        recognition_service = RecognitionService(face_data=face_data, **kwargs)
         recognition_service.run_recognition()
+
+    def enroll(
+        self,
+        raw_name: str,
+        camera_index: int | None = None,
+        frame_scale: float | None = None,
+        detection_model: str | None = None,
+    ) -> None:
+        """Enroll a person from the webcam by saving one photo to known_faces."""
+        stem = EncodingService.sanitize_person_name(raw_name)
+        if stem is None:
+            print(
+                "Invalid name. Use letters, numbers, spaces, or hyphens "
+                "(e.g. 'Alice' or 'Jane_Doe')."
+            )
+            return
+
+        enroll_kwargs: dict = {}
+        if camera_index is not None:
+            enroll_kwargs["camera_index"] = camera_index
+        if frame_scale is not None:
+            enroll_kwargs["frame_scale"] = frame_scale
+        if detection_model is not None:
+            enroll_kwargs["detection_model"] = detection_model
+
+        enrollment = EnrollmentService(self.encoding_service, **enroll_kwargs)
+        enrollment.enroll_from_camera(stem)
 
 
 def main() -> None:
     """
-    Main entry point for the facial recognition application.
-
-    Creates the main controller and runs the application.
+    Default CLI entry when module is run directly (legacy).
+    Prefer recognition_app.py with argparse.
     """
     controller = MainController()
     controller.run(force_reload_encodings=False)
@@ -64,4 +110,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
